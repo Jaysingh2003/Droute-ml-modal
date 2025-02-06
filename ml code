@@ -1,0 +1,60 @@
+import pandas as pd
+import numpy as np
+import pickle
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+
+# Load dataset
+df = pd.read_csv("/content/simulated_dataset.csv")
+
+# Feature Engineering: Extract datetime features
+df['Pickup_Time'] = pd.to_datetime(df['Pickup_Time'])
+df['Delivery_Time'] = pd.to_datetime(df['Delivery_Time'])
+df['Pickup_Hour'] = df['Pickup_Time'].dt.hour
+df['Delivery_Hour'] = df['Delivery_Time'].dt.hour
+df['Day_of_Week'] = df['Pickup_Time'].dt.dayofweek
+
+# Selecting Features and Target
+features = ['Source_Latitude', 'Source_Longitude', 'Destination_Latitude', 'Destination_Longitude',
+            'Distance_km', 'Weight_kg', 'Volume_cuft', 'Goods_Type', 'Pickup_Hour', 'Delivery_Hour', 'Day_of_Week']
+target = 'Fare'
+
+X = df[features]
+y = df[target]
+
+# Preprocessing
+numeric_features = ['Source_Latitude', 'Source_Longitude', 'Destination_Latitude', 'Destination_Longitude',
+                    'Distance_km', 'Weight_kg', 'Volume_cuft', 'Pickup_Hour', 'Delivery_Hour', 'Day_of_Week']
+categorical_features = ['Goods_Type']
+
+preprocessor = ColumnTransformer([
+    ('num', StandardScaler(), numeric_features),
+    ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
+])
+
+# Model Pipeline
+model = Pipeline([
+    ('preprocessor', preprocessor),
+    ('regressor', RandomForestRegressor(n_estimators=100, random_state=42))
+])
+
+# Split Data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train Model
+model.fit(X_train, y_train)
+
+# Save model to pickle file
+with open("fare_prediction_model.pkl", "wb") as f:
+    pickle.dump(model, f)
+
+# Predictions
+y_pred = model.predict(X_test)
+
+# Evaluate Model
+rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+print(f'RMSE: {rmse}')
